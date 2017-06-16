@@ -8,7 +8,7 @@ from matplotlib.figure import Figure
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, QPushButton, QLabel
 from PyQt5.QtGui import QIcon
-
+from tempfile import TemporaryFile
 
 
 # There are three classes defined in this file:
@@ -58,7 +58,7 @@ class App(QMainWindow):
                 btn.setStyleSheet("background-color: red")
                 self.old_sender = btn
 
-        # the "next" button: used to load the next image 
+        # the "next" button: used to load the next image
         btnnext = QPushButton('next', self)
         btnnext.resize(btn.sizeHint())
         btnnext.move(1500, 120+100*7)
@@ -71,14 +71,14 @@ class App(QMainWindow):
         # canvas_input: a canvas to display the input image
         self.canvas_input = MyImage(self, width=4, height=4)
         self.canvas_input.move(900,0)
-
+        self.canvas_input.resize(300,300)
         # canvas_activation: a canvas to display a layer activation
         self.canvas_activation = PlotCanvas(self, width=9, height=9)
         self.canvas_activation.move(0,0)
 
         # canvas_input2: a canvas to display the input image
         # (mayb be more efficient - check!)
-        self.canvas_input2 = MyImage2(self)
+        self.canvas_input2 = MyImage(self)
         self.canvas_input2.move(900,400)
         self.canvas_input2.resize(300,300)
 
@@ -101,7 +101,7 @@ class App(QMainWindow):
     def layerbuttonClicked(self, sample_index):
         '''Callback for clicking one of the layer buttons.
         '''
-        sender = self.sender()  
+        sender = self.sender()
         self.layer_label = sender.text()
         print("layerbuttonClicked: {}".format(self.layer_label))
         self.update(activation=True)
@@ -120,11 +120,15 @@ class App(QMainWindow):
         print("update: {} ({}) ".format(self.layer_label,self.sample_index))
 
         if input:
-            self.canvas_input.myplot(self.data[self.sample_index,:,:,0])
-            self.canvas_input2.myplot(self.data[self.sample_index,:,:,0])
+            self.canvas_input.myplot(self.data[self.sample_index,:,:,0],'gray')
+            #print(np.asarray(self.network.get_relevance(self.network.get_activations_list(self.data[self.sample_index,:,:,0]),[0,0,1])).shape)
+            #print(self.network.get_relevance(self.network.get_activations_list(self.data[self.sample_index,:,:,0]),[0,0,1])[1])
+            #outfile = TemporaryFile()
+            #np.save('im.npy',np.asarray(self.network.get_relevance(self.network.get_activations_list(self.data[self.sample_index,:,:,0]),[0,0,1])))
+            self.canvas_input2.myplot(np.asarray(self.network.get_relevance(self.network.get_activations_list(self.data[self.sample_index,:,:,0]),[0,0,1]))[0][:,:,0],'coolwarm')
             self.info_box.showInputInfo("{}/{}".format(self.sample_index,len(self.data)), self.data.shape[1:3])
             self.img_counter.setText("{}/{}".format(self.sample_index,len(self.data)))
-            if activation is None: activation = True 
+            if activation is None: activation = True
 
 
         if activation:
@@ -133,7 +137,7 @@ class App(QMainWindow):
             self.canvas_activation.plotactivat(activations)
             self.info_box.showLayerInfo(activations.shape,
                                         self.network.get_layer_info(self.layer_label))
-        
+
 
 
 
@@ -156,10 +160,10 @@ class MyImage(FigureCanvas):
         self.draw()
 
 
-    def myplot(self, image):
+    def myplot(self, image,map):
         '''Plot the given image.
         '''
-        self.axes.imshow(image,cmap='gray')
+        self.axes.imshow(image,cmap=map)
         self.draw()
 
 
@@ -200,7 +204,7 @@ class PlotCanvas(FigureCanvas):
             intermediate_output = intermediate_output.reshape(1,1,1,intermediate_output.shape[1])
         # the axis of intermediate_output are:
         # (batch_size, width, height, output_channels)
-            
+
         vm = np.max(intermediate_output) if fully_connected else None
 
         # number of plots: plot all output channels
@@ -214,11 +218,11 @@ class PlotCanvas(FigureCanvas):
 
         # the pixel map to be shown
         ishow = np.zeros([imagesize*ncolumns,imagesize*ncolumns])
-        
+
         intermediate_output = np.swapaxes(intermediate_output,0,3)
         # the axis of intermediate_output are:
         # (output_channels, width, height, batch_size)
-        
+
         print("plotactivat: columns = {}, plots = {}".format(ncolumns,nbofplots))
         for i in range(ncolumns):
             ishow[i*imagesize:(i+1)*imagesize,0:imagesize*(nbofplots-i*ncolumns)]=np.hstack(intermediate_output[i*ncolumns:(i+1)*ncolumns,:,:,0])
@@ -241,7 +245,7 @@ class MyImage2(QLabel):
     def __init__(self, parent):
         super().__init__(parent)
         self.setScaledContents(True)
-        # an alternative may be to call 
+        # an alternative may be to call
         #     pixmap.scaled(self.size(), Qt.KeepAspectRatio)
         # in the myplot method.
 
@@ -250,14 +254,14 @@ class MyImage2(QLabel):
         '''Display the given image. Image is supposed to be a numpy array.
         '''
 
-        print("myplot: {} ({}) {}-{}".format(image.shape,image.dtype,image.min(),image.max()))
+        #print("myplot: {} ({}) {}-{}".format(image.shape,image.dtype,image.min(),image.max()))
 
         # To construct a 8-bit monochrome QImage, we need a uint8
         # numpy array
-        if image.dtype != np.uint8: 
-            image = (image*255).astype(np.uint8)
-            
-        qtimage = QImage(image, image.shape[1], image.shape[0],
+        #if image.dtype != np.uint8:
+        #    image = (image*255).astype(np.uint8)
+        print(image.shape)
+        qtimage = QImage(image245, image.shape[1], image.shape[0],
                          QImage.Format_Grayscale8)
         pixmap = QPixmap(qtimage)
         self.setPixmap(pixmap)
@@ -285,4 +289,3 @@ class InfoBox(QLabel):
     def showInfo(self):
         self.setText(self.input_text + "<br>\n<br>\n" +
                      self.layer_text)
-        
