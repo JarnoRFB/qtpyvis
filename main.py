@@ -10,6 +10,9 @@ from gui import App
 from list_of_funnctions import KerasNetwork
 
 if __name__ == '__main__':
+    '''
+
+    '''
     parser = argparse.ArgumentParser(description='Neural network analysation.')
     parser.add_argument("model", help = 'filename of model to use',
                         default = 'my2c2d_model.h5')
